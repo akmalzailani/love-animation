@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animasi Hati - I Love You</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            overflow: hidden;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        canvas { display: block; }
+
+        #glow-text {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgb(220, 60, 120);
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(220,60,120,0.8), 0 0 20px rgba(220,60,120,0.6), 0 0 30px rgba(220,60,120,0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+            pointer-events: none;
+            letter-spacing: 5px;
+            white-space: nowrap;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.8; text-shadow: 0 0 10px rgba(220,60,120,0.8), 0 0 20px rgba(220,60,120,0.6); }
+            50%       { transform: translateX(-50%) scale(1.1); opacity: 1; text-shadow: 0 0 20px rgba(220,60,120,1), 0 0 40px rgba(220,60,120,0.8), 0 0 60px rgba(220,60,120,0.6); }
+        }
+
+        #music-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(220,60,120,0.2);
+            border: 2px solid rgba(220,60,120,0.5);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 2px;
+            z-index: 1000;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 15px rgba(220,60,120,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #music-btn:hover { background: rgba(220,60,120,0.4); transform: scale(1.1); box-shadow: 0 0 25px rgba(220,60,120,0.6); border-color: rgba(220,60,120,1); }
+        #music-btn.playing { background: rgba(220,60,120,0.6); animation: pulse-border 2s infinite; }
+
+        @keyframes pulse-border {
+            0%   { box-shadow: 0 0 0 0 rgba(220,60,120,0.7); }
+            70%  { box-shadow: 0 0 0 15px rgba(220,60,120,0); }
+            100% { box-shadow: 0 0 0 0 rgba(220,60,120,0); }
+        }
+
+        .music-bars { display: flex; align-items: flex-end; gap: 2px; height: 15px; }
+        .bar { width: 3px; background: white; animation: bounce 1s ease-in-out infinite; display: none; height: 5px; }
+        #music-btn.playing .bar { display: block; }
+        .bar:nth-child(2) { animation-delay: 0.2s; }
+        .bar:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce { 0%,100% { height: 5px; } 50% { height: 15px; } }
+
+        /* Volume Control */
+        #volume-wrap {
+            position: fixed;
+            top: 75px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+        #volume-wrap label { color: rgba(220,60,120,0.8); font-size: 11px; letter-spacing: 2px; font-family: 'Courier New', monospace; }
+        #volume-slider { width: 80px; accent-color: rgb(220,60,120); cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <canvas id="heartCanvas"></canvas>
+
+    <!-- ============================================================
+         LANGKAH 1: Letakkan file MP3 kamu satu folder dengan file ini
+         LANGKAH 2: Ganti "musik.mp3" dengan nama file MP3 kamu
+         Contoh: jika nama file kamu "cinta.mp3" → ganti jadi src="cinta.mp3"
+    ============================================================ -->
+    <audio id="audio-player" src="musik.mp3" loop preload="auto"></audio>
+
+    <button id="music-btn" onclick="toggleMusic()">
+        <span id="btn-text">PUTAR MUSIK</span>
+        <div class="music-bars">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
+    </button>
+
+    <div id="volume-wrap">
+        <label for="volume-slider">VOL</label>
+        <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.8">
+    </div>
+
+    <script>
+        // ── Canvas Setup ──────────────────────────────────────────
+        const canvas = document.getElementById('heartCanvas');
+        const ctx    = canvas.getContext('2d');
+        let width, height, particles = [];
+        const particleCount = 280;
+        const heartText     = "I Love You ";
+
+        function resize() {
+            width  = canvas.width  = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        class Particle {
+            constructor(t, index) {
+                this.t    = t;
+                this.char = heartText[index % heartText.length];
+                const x   =  16 * Math.pow(Math.sin(this.t), 3);
+                const y   = -(13 * Math.cos(this.t) - 5 * Math.cos(2*this.t) - 2 * Math.cos(3*this.t) - Math.cos(4*this.t));
+                this.baseX = x;
+                this.baseY = y;
+            }
+
+            draw(time) {
+                const pulse = 1 + 0.12 * Math.sin(time * 0.003);
+                const scale = Math.min(width, height) / 45 * pulse;
+                const x     = width  / 2 + this.baseX * scale;
+                const y     = height / 2 + this.baseY * scale;
+                const wave  = Math.sin(time * 0.002 + this.t * 5);
+                const r = 220, g = Math.round(60 + wave * 40), b = Math.round(120 + wave * 40);
+                const rot   = Math.sin(time * 0.003 + this.t * 2) * 0.3;
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(rot);
+                ctx.fillStyle   = `rgb(${r},${g},${b})`;
+                ctx.font        = 'bold 16px "Courier New", monospace';
+                ctx.textAlign   = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur  = 8;
+                ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+                ctx.fillText(this.char, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle((i / particleCount) * Math.PI * 2, i));
+            }
+        }
+
+        function animate(time) {
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            ctx.fillRect(0, 0, width, height);
+            particles.forEach(p => p.draw(time));
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        requestAnimationFrame(animate);
+
+        // ── Musik ─────────────────────────────────────────────────
+        const audio   = document.getElementById('audio-player');
+        const btn     = document.getElementById('music-btn');
+        const btnText = document.getElementById('btn-text');
+        const volSlider = document.getElementById('volume-slider');
+        let isPlaying = false;
+
+        audio.volume = parseFloat(volSlider.value);
+        volSlider.addEventListener('input', () => { audio.volume = parseFloat(volSlider.value); });
+
+        function toggleMusic() {
+            if (!isPlaying) {
+                audio.play()
+                    .then(() => {
+                        btn.classList.add('playing');
+                        btnText.innerText = 'MUSIK AKTIF';
+                        isPlaying = true;
+                    })
+                    .catch(err => {
+                        console.error('Gagal memutar audio:', err);
+                        alert('Gagal memutar musik.\nPastikan nama file MP3 sudah benar dan ada di folder yang sama.');
+                    });
+            } else {
+                audio.pause();
+                btn.classList.remove('playing');
+                btnText.innerText = 'PUTAR MUSIK';
+                isPlaying = false;
+            }
+        }
+    </script>
+</body>
+</html>
